@@ -90,10 +90,12 @@ router.post("/", async (req: Request, res: Response) => {
     console.error(`   Error details: ${errorMessage}`);
     console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
     
+    // Return more details even in production for debugging
     res.status(500).json({
       error: "Processing failed",
       message: errorMessage,
-      details: config.nodeEnv === "development" ? (error instanceof Error ? error.stack : undefined) : undefined,
+      step: errorMessage.includes("OCR") ? "ocr" : errorMessage.includes("Normalization") ? "normalization" : errorMessage.includes("Title") ? "title_generation" : "unknown",
+      details: error instanceof Error ? error.stack : undefined,
     });
   }
 });

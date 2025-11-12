@@ -76,6 +76,21 @@ export async function extractTextFromImage(imagePath: string): Promise<OCRRespon
     const fullPath = path.isAbsolute(imagePath) ? imagePath : path.join(__dirname, "../../", imagePath);
     
     console.log(`   Full path: ${fullPath}`);
+    
+    // Verify file exists and is readable
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Image file does not exist: ${fullPath}`);
+    }
+    
+    try {
+      fs.accessSync(fullPath, fs.constants.R_OK);
+      console.log("   File is readable");
+    } catch (accessError) {
+      throw new Error(`Image file is not readable: ${fullPath}`);
+    }
+    
+    const stats = fs.statSync(fullPath);
+    console.log(`   File size: ${stats.size} bytes`);
     console.log("   Calling Google Vision API...");
 
     const [result] = await visionClient.textDetection(fullPath);
