@@ -73,22 +73,33 @@ router.post("/sheets", async (req: Request, res: Response) => {
     }
 
     // Initialize Google Sheets API
-    const credentialsPath = config.google.sheets.serviceAccountKey
-      ? (path.isAbsolute(config.google.sheets.serviceAccountKey)
-          ? config.google.sheets.serviceAccountKey
-          : path.join(__dirname, "../../", config.google.sheets.serviceAccountKey))
-      : null;
+    let auth: google.auth.GoogleAuth;
+    
+    // Priority 1: Use JSON credentials from environment variable
+    if (config.google.sheets.serviceAccountKeyJson) {
+      auth = new google.auth.GoogleAuth({
+        credentials: config.google.sheets.serviceAccountKeyJson,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      });
+    } else {
+      // Priority 2: Use file path
+      const credentialsPath = config.google.sheets.serviceAccountKey
+        ? (path.isAbsolute(config.google.sheets.serviceAccountKey)
+            ? config.google.sheets.serviceAccountKey
+            : path.join(__dirname, "../../", config.google.sheets.serviceAccountKey))
+        : null;
 
-    if (!credentialsPath || !fs.existsSync(credentialsPath)) {
-      return res.status(500).json({ 
-        error: "Google Sheets service account credentials not found. Check GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY in .env" 
+      if (!credentialsPath || !fs.existsSync(credentialsPath)) {
+        return res.status(500).json({ 
+          error: "Google Sheets service account credentials not found. Check GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY or GOOGLE_SHEETS_CREDENTIALS_JSON in .env" 
+        });
+      }
+
+      auth = new google.auth.GoogleAuth({
+        keyFile: credentialsPath,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
       });
     }
-
-    const auth = new google.auth.GoogleAuth({
-      keyFile: credentialsPath,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
 
     const sheets = google.sheets({ version: "v4", auth });
 

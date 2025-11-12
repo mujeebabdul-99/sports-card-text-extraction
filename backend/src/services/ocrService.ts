@@ -11,25 +11,35 @@ function getVisionClient(): ImageAnnotatorClient {
     console.log("🔍 Initializing Google Vision API client...");
     console.log(`   Project ID: ${config.google.projectId || "NOT SET"}`);
     
-    const credentialsPath = config.google.visionCredentials
-      ? (path.isAbsolute(config.google.visionCredentials)
-          ? config.google.visionCredentials
-          : path.join(__dirname, "../../", config.google.visionCredentials))
-      : null;
-    
-    console.log(`   Credentials: ${credentialsPath || "Using default credentials"}`);
-    
     try {
-      if (credentialsPath && fs.existsSync(credentialsPath)) {
+      // Priority 1: Use JSON credentials from environment variable
+      if (config.google.visionCredentialsJson) {
+        console.log(`   Credentials: Using JSON from environment variable`);
         client = new ImageAnnotatorClient({
-          keyFilename: credentialsPath,
+          credentials: config.google.visionCredentialsJson,
           projectId: config.google.projectId,
         });
       } else {
-        // Fallback: try to use default credentials
-        client = new ImageAnnotatorClient({
-          projectId: config.google.projectId,
-        });
+        // Priority 2: Use file path
+        const credentialsPath = config.google.visionCredentials
+          ? (path.isAbsolute(config.google.visionCredentials)
+              ? config.google.visionCredentials
+              : path.join(__dirname, "../../", config.google.visionCredentials))
+          : null;
+        
+        console.log(`   Credentials: ${credentialsPath || "Using default credentials"}`);
+        
+        if (credentialsPath && fs.existsSync(credentialsPath)) {
+          client = new ImageAnnotatorClient({
+            keyFilename: credentialsPath,
+            projectId: config.google.projectId,
+          });
+        } else {
+          // Fallback: try to use default credentials
+          client = new ImageAnnotatorClient({
+            projectId: config.google.projectId,
+          });
+        }
       }
       console.log("✅ Google Vision API client initialized successfully");
     } catch (error) {
