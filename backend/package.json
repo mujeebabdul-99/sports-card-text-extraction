@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Backend API for CardExtract Pro",
   "main": "dist/server.js",
-  "packageManager": "pnpm@8.0.0",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
