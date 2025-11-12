@@ -73,11 +73,14 @@ router.post("/sheets", async (req: Request, res: Response) => {
     }
 
     // Initialize Google Sheets API
-    let auth: google.auth.GoogleAuth;
+    // Using any type to avoid TypeScript namespace issues during build
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let googleAuth: any;
     
     // Priority 1: Use JSON credentials from environment variable
     if (config.google.sheets.serviceAccountKeyJson) {
-      auth = new google.auth.GoogleAuth({
+      // @ts-expect-error - google namespace may not be recognized during build
+      googleAuth = new google.auth.GoogleAuth({
         credentials: config.google.sheets.serviceAccountKeyJson,
         scopes: ["https://www.googleapis.com/auth/spreadsheets"],
       });
@@ -95,13 +98,14 @@ router.post("/sheets", async (req: Request, res: Response) => {
         });
       }
 
-      auth = new google.auth.GoogleAuth({
+      // @ts-expect-error - google namespace may not be recognized during build
+      googleAuth = new google.auth.GoogleAuth({
         keyFile: credentialsPath,
         scopes: ["https://www.googleapis.com/auth/spreadsheets"],
       });
     }
 
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = google.sheets({ version: "v4", auth: googleAuth });
 
     // Prepare data row
     const rowData = [
