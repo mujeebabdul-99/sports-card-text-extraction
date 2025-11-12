@@ -25,7 +25,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files statically
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+const staticUploadsPath = path.isAbsolute(config.upload.dir)
+  ? config.upload.dir
+  : path.join(__dirname, "../uploads");
+app.use("/uploads", express.static(staticUploadsPath));
 
 // Routes
 app.use("/api/images", imageRouter);

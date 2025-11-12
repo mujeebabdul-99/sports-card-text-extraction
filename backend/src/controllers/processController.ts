@@ -24,11 +24,17 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Step 1: OCR
     console.log("\n--- Step 1: OCR Extraction ---");
-    const imagePath = path.join(__dirname, "../../", config.upload.dir, filename);
+    // Build image path - handle both absolute and relative paths
+    const uploadDir = config.upload.dir;
+    const imagePath = path.isAbsolute(uploadDir) 
+      ? path.join(uploadDir, filename)
+      : path.join(__dirname, "../../", uploadDir, filename);
     
     // Check if file exists
     if (!fs.existsSync(imagePath)) {
       console.error(`❌ Image file not found: ${imagePath}`);
+      console.error(`   Upload directory: ${uploadDir}`);
+      console.error(`   Filename: ${filename}`);
       return res.status(404).json({ 
         error: "Image file not found",
         path: imagePath 
