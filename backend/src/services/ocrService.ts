@@ -15,27 +15,37 @@ function getVisionClient(): ImageAnnotatorClient {
       // Priority 1: Use JSON credentials from environment variable
       if (config.google.visionCredentialsJson) {
         console.log(`   Credentials: Using JSON from environment variable`);
+        console.log(`   Credentials type: ${typeof config.google.visionCredentialsJson}`);
+        console.log(`   Has project_id: ${!!config.google.visionCredentialsJson.project_id}`);
+        console.log(`   Has private_key: ${!!config.google.visionCredentialsJson.private_key}`);
         client = new ImageAnnotatorClient({
           credentials: config.google.visionCredentialsJson,
           projectId: config.google.projectId,
         });
       } else {
-        // Priority 2: Use file path
+        // Priority 2: Use file path (only in development/local)
         const credentialsPath = config.google.visionCredentials
           ? (path.isAbsolute(config.google.visionCredentials)
               ? config.google.visionCredentials
               : path.join(__dirname, "../../", config.google.visionCredentials))
           : null;
         
-        console.log(`   Credentials: ${credentialsPath || "Using default credentials"}`);
-        
         if (credentialsPath && fs.existsSync(credentialsPath)) {
+          console.log(`   Credentials: Using file at ${credentialsPath}`);
           client = new ImageAnnotatorClient({
             keyFilename: credentialsPath,
             projectId: config.google.projectId,
           });
         } else {
-          // Fallback: try to use default credentials
+          // In production, require JSON credentials
+          if (config.nodeEnv === "production") {
+            throw new Error(
+              "Google Vision credentials not found. In production, you must set GOOGLE_VISION_CREDENTIALS_JSON environment variable. " +
+              "Copy the entire contents of your service account JSON file and set it as an environment variable."
+            );
+          }
+          // In development, try default credentials as fallback
+          console.log(`   Credentials: Attempting to use default credentials`);
           client = new ImageAnnotatorClient({
             projectId: config.google.projectId,
           });
@@ -91,9 +101,15 @@ export async function extractTextFromImage(imagePath: string): Promise<OCRRespon
     
     const stats = fs.statSync(fullPath);
     console.log(`   File size: ${stats.size} bytes`);
+    console.log("   Reading image file...");
+    
+    // Read file as buffer (more reliable in production environments)
+    const imageBuffer = fs.readFileSync(fullPath);
     console.log("   Calling Google Vision API...");
 
-    const [result] = await visionClient.textDetection(fullPath);
+    const [result] = await visionClient.textDetection({
+      image: { content: imageBuffer },
+    });
     console.log("✅ OCR extraction completed");
     const detections = result.textAnnotations || [];
 

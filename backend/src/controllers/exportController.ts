@@ -6,7 +6,7 @@ import { config } from "../config";
 import path from "path";
 import fs from "fs";
 
-const router = Router();
+const router: Router = Router();
 
 router.post("/csv", (req: Request, res: Response) => {
   try {
@@ -92,6 +92,11 @@ router.post("/sheets", async (req: Request, res: Response) => {
         : null;
 
       if (!credentialsPath || !fs.existsSync(credentialsPath)) {
+        if (config.nodeEnv === "production") {
+          return res.status(500).json({ 
+            error: "Google Sheets service account credentials not found. In production, you must set GOOGLE_SHEETS_CREDENTIALS_JSON environment variable. Copy the entire contents of your service account JSON file and set it as an environment variable." 
+          });
+        }
         return res.status(500).json({ 
           error: "Google Sheets service account credentials not found. Check GOOGLE_SHEETS_SERVICE_ACCOUNT_KEY or GOOGLE_SHEETS_CREDENTIALS_JSON in .env" 
         });
