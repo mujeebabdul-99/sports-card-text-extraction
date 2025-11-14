@@ -50,6 +50,12 @@ export default function ExportPage() {
       saveExportPreference("csv");
       setSavedPreference("csv");
       setIsModalOpen(true);
+      
+      // Auto-redirect to upload page after 1.5 seconds
+      setTimeout(() => {
+        setIsModalOpen(false);
+        router.push("/upload");
+      }, 1500);
     } catch (error) {
       console.error("CSV export error:", error);
       alert("Failed to export CSV. Please try again.");
@@ -78,8 +84,17 @@ export default function ExportPage() {
         setIsModalOpen(true);
         // Store sheet URL for the modal
         sessionStorage.setItem("sheetUrl", response.data.sheetUrl);
+        
+        // Auto-redirect to upload page after 1.5 seconds
+        setTimeout(() => {
+          setIsModalOpen(false);
+          router.push("/upload");
+        }, 1500);
       } else {
-        alert("Data exported to Google Sheets successfully!");
+        // Auto-redirect immediately if no sheet URL
+        setTimeout(() => {
+          router.push("/upload");
+        }, 500);
       }
     } catch (error: any) {
       console.error("Google Sheets export error:", error);

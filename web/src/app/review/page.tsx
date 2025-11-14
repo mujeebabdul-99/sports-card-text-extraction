@@ -83,14 +83,29 @@ export default function ReviewPage() {
         link.remove();
         window.URL.revokeObjectURL(url);
         setIsModalOpen(true);
+        
+        // Auto-redirect to upload page after 1.5 seconds
+        setTimeout(() => {
+          setIsModalOpen(false);
+          router.push("/upload");
+        }, 1500);
       } else {
         const response = await api.post("/api/export/sheets", { cardId });
         
         if (response.data.sheetUrl) {
           setIsModalOpen(true);
           sessionStorage.setItem("sheetUrl", response.data.sheetUrl);
+          
+          // Auto-redirect to upload page after 1.5 seconds
+          setTimeout(() => {
+            setIsModalOpen(false);
+            router.push("/upload");
+          }, 1500);
         } else {
-          alert("Data exported to Google Sheets successfully!");
+          // Auto-redirect immediately if no sheet URL
+          setTimeout(() => {
+            router.push("/upload");
+          }, 500);
         }
       }
     } catch (error: any) {

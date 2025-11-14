@@ -41,6 +41,7 @@ export default function ExportSuccessModal({
         <div className="flex flex-col items-center mb-6">
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-2xl font-bold text-gray-800">Export Successful!</h2>
+          <p className="text-sm text-gray-500 mt-2">Redirecting to upload page...</p>
         </div>
 
         {/* Middle Section - Export Options */}
