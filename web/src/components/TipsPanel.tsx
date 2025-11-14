@@ -46,14 +46,14 @@ export default function TipsPanel() {
           <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden border-2 border-red-300 relative">
             {!badImageError ? (
               <img
-                src="/bad.jpg"
+                src="/bad.JPG"
                 alt="Bad example: Poor card photo"
                 className="w-full h-full object-cover"
                 onError={() => setBadImageError(true)}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <span className="text-gray-400 text-sm">Place bad.jpg in /public/</span>
+                <span className="text-gray-400 text-sm">Place bad.JPG in /public/</span>
               </div>
             )}
           </div>
