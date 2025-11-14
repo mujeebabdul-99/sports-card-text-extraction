@@ -45,8 +45,9 @@ export default function ProcessingPage() {
             errorMessage = "Image file not found. Please upload the image again.";
           } else if (data.step === "ocr" || data.message?.includes("OCR")) {
             errorMessage = "Unable to extract text from this image. Please ensure:\n• The image is clear and in focus\n• The card text is visible\n• The image is not corrupted\n• Try a different image format (JPG or PNG)";
-          } else if (data.step === "normalization" || data.message?.includes("Normalization")) {
-            errorMessage = "Unable to process the extracted text. The image may not contain readable card information. Please try a clearer image.";
+          } else if (data.step === "normalization" || data.message?.includes("Normalization") || data.message?.includes("AI service")) {
+            // Use the backend's user-friendly message if available
+            errorMessage = data.message || "Unable to process the extracted text. The AI service may be temporarily unavailable. Please try again.";
           } else if (data.error || data.message) {
             errorMessage = data.message || data.error;
           }
