@@ -25,7 +25,7 @@ export default function TipsPanel() {
           <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden border-2 border-green-300 relative">
             {!goodImageError ? (
               <Image
-                src="/good.jpg"
+                src="/good.png"
                 alt="Good example: Clear card photo"
                 fill
                 className="object-cover"
@@ -33,7 +33,7 @@ export default function TipsPanel() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <span className="text-gray-400 text-sm">Place good.jpg in /public/</span>
+                <span className="text-gray-400 text-sm">Place good.png in /public/</span>
               </div>
             )}
           </div>
