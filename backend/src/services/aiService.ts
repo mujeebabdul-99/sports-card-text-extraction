@@ -424,37 +424,53 @@ export async function generateTitleAndDescription(
 
     // Build player name
     const playerName = [normalized.playerFirstName, normalized.playerLastName].filter(Boolean).join(" ");
-    const playerLastName = normalized.playerLastName || "";
-    
-    // Check if title already contains player's last name to avoid duplication
-    const titleContainsPlayerName = normalized.title && playerLastName && 
-      normalized.title.toLowerCase().includes(playerLastName.toLowerCase());
 
-    // Optimized prompt - balanced between speed and clarity
+    // Client-specified format for title and description
     const prompt = `Generate a title and description for this sports card.
 
 Card Information:
 - Year: ${normalized.year || ""}
-- Set: ${normalized.set || ""}
+- Brand/Set: ${normalized.set || ""}
 - Card Number: ${normalized.cardNumber || ""}
-- Player: ${normalized.playerFirstName || ""} ${normalized.playerLastName || ""}
-- Grading Company: ${normalized.gradingCompany || ""}
+- Player First Name: ${normalized.playerFirstName || ""}
+- Player Last Name: ${normalized.playerLastName || ""}
+- Grading Service: ${normalized.gradingCompany || ""}
 - Grade: ${normalized.grade || ""}
 - Card Title/Event: ${normalized.title || "None"}
+- Caption: ${normalized.caption || "None"}
 
-Title Format Instructions:
-${titleContainsPlayerName 
-  ? `The card title "${normalized.title}" already contains the player's last name "${playerLastName}". 
-Format: [year] [set] [card title as-is] #[cardNumber] [gradingCompany] [grade]
-DO NOT include the player's name separately since it's already in the card title.`
-  : `Format: [year] [set] [playerFirstName] [playerLastName] [card title/event if different] #[cardNumber] [gradingCompany] [grade]
-Include special designations like: rookie, logo patch, jersey patch, signed, etc.`}
+Title Format (REQUIRED - follow exactly):
+[year] [brand] [player first name] [player last name] [special designation, if applicable*] [card number] [grading service] [grade]
 
-Description Format: [repeat title], [player name]. [brief description of why player is important]. [why this card is valuable].
+*Special designations include: rookie, logo patch, jersey patch, signed, etc. 
+- Check the Card Title/Event and Caption fields above for special designations
+- Only include special designation if it's clearly mentioned (e.g., "Rookie", "Signed", "Logo Patch", "Jersey Patch")
+- If no special designation is found, omit it entirely
+
+IMPORTANT RULES:
+- Always include player first name and last name in the title (even if they appear in the card title)
+- Special designation (if any) goes AFTER player name and BEFORE card number
+- Card number should include the # symbol (e.g., #595, #123)
+- Use exact format: year, brand, first name, last name, special designation (optional), card number, grading service, grade
+- Do NOT include the card title/event text unless it's a special designation
+
+Description Format (REQUIRED - follow exactly):
+[repeat title], [player name], [description of why player is important]. [why card is good].
+
+CRITICAL: You MUST generate BOTH autoTitle AND autoDescription. Do NOT leave autoDescription empty.
 
 Examples:
-- "1972 Topps Nolan Ryan #595 PSA NM-MT 8"
-- "1955 Topps Sandy Koufax Rookie #123 PSA VG-EX 4"
+Title: "1972 Topps Nolan Ryan #595 PSA NM-MT 8"
+Description: "1972 Topps Nolan Ryan #595 PSA NM-MT 8, Nolan Ryan, Hall of Fame pitcher known for his record 7 no-hitters and 5,714 strikeouts. This high-grade card from his prime years is highly sought after by collectors."
+
+Title: "1955 Topps Sandy Koufax Rookie #123 PSA VG-EX 4"
+Description: "1955 Topps Sandy Koufax Rookie #123 PSA VG-EX 4, Sandy Koufax, Legendary left-handed pitcher and Hall of Famer who dominated the 1960s. This is his iconic rookie card, making it extremely valuable despite the lower grade."
+
+IMPORTANT: 
+- autoDescription MUST be a complete sentence (at least 50 characters)
+- autoDescription MUST explain why the player is important
+- autoDescription MUST explain why the card is valuable/good
+- NEVER return an empty autoDescription
 
 Return ONLY valid JSON:
 {
@@ -585,6 +601,7 @@ Return ONLY valid JSON:
     }
     
     console.log(`   📝 Response length: ${content.length} characters`);
+    console.log(`   📝 Response preview: ${content.substring(0, 300)}...`);
 
     let parsed: TitleDescriptionResponse;
     try {
@@ -595,8 +612,77 @@ Return ONLY valid JSON:
       throw new Error(`Invalid JSON response from Gemini: ${parseError instanceof Error ? parseError.message : "Unknown parse error"}`);
     }
     
+    // Validate and fix response
+    let fixedTitle = parsed.autoTitle || "";
+    let fixedDescription = parsed.autoDescription || "";
+    
+    // Check if title contains description (common AI mistake - title is too long)
+    // Typical title should be < 150 characters, if longer it might contain description
+    if (fixedTitle.length > 150 && !fixedDescription) {
+      console.warn("   ⚠️  Title seems too long and description is empty - might be combined");
+      // Try to split on common patterns
+      const titlePattern = /^(.{0,150}?)(?:,\s*)(.+)$/;
+      const match = fixedTitle.match(titlePattern);
+      if (match && match[1] && match[2]) {
+        console.log("   🔧 Attempting to split title and description");
+        fixedTitle = match[1].trim();
+        fixedDescription = match[2].trim();
+      }
+    }
+    
+    // If description is empty but title has description-like content, try to extract
+    if (!fixedDescription && fixedTitle.includes(", ") && fixedTitle.length > 100) {
+      // Look for pattern: "Title, Player Name, description..."
+      const parts = fixedTitle.split(", ");
+      if (parts.length >= 3) {
+        // First part is likely the title, rest might be description
+        const potentialTitle = parts.slice(0, 2).join(", "); // Title + Player Name
+        const potentialDesc = parts.slice(2).join(", ");
+        if (potentialTitle.length < 150 && potentialDesc.length > 20) {
+          console.log("   🔧 Extracting description from title field");
+          fixedTitle = potentialTitle;
+          fixedDescription = potentialDesc;
+        }
+      }
+    }
+    
+    // Validate final fields
+    if (!fixedTitle || fixedTitle.trim() === "") {
+      console.warn("   ⚠️  autoTitle is empty or missing in response");
+      console.warn("   Full parsed response:", JSON.stringify(parsed, null, 2));
+    }
+    
+    if (!fixedDescription || fixedDescription.trim() === "") {
+      console.warn("   ⚠️  autoDescription is empty or missing in response");
+      console.warn("   Full parsed response:", JSON.stringify(parsed, null, 2));
+      
+      // Try to generate a fallback description from the title
+      if (fixedTitle && fixedTitle.trim() !== "") {
+        const playerName = [normalized.playerFirstName, normalized.playerLastName].filter(Boolean).join(" ");
+        if (playerName) {
+          fixedDescription = `${fixedTitle}, ${playerName}, notable player in sports history. This card is valuable for collectors.`;
+          console.log("   🔧 Generated fallback description");
+        }
+      }
+    }
+    
+    // Final validation - ensure description is not empty
+    if (!fixedDescription || fixedDescription.trim() === "") {
+      console.error("   ❌ CRITICAL: autoDescription is still empty after all attempts");
+      console.error("   This should not happen - AI should always generate a description");
+      // Set a minimal fallback
+      fixedDescription = `${fixedTitle || "Sports card"}, collectible item.`;
+    }
+    
+    // Log what we're returning
+    console.log(`   ✅ autoTitle (${fixedTitle.length} chars): ${fixedTitle ? fixedTitle.substring(0, 50) + "..." : "EMPTY"}`);
+    console.log(`   ✅ autoDescription (${fixedDescription.length} chars): ${fixedDescription ? fixedDescription.substring(0, 50) + "..." : "EMPTY"}`);
+    
     console.log("✅ Title and description generated");
-    return parsed;
+    return {
+      autoTitle: fixedTitle,
+      autoDescription: fixedDescription,
+    };
   } catch (error) {
     console.error("❌ Title/Description Generation Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

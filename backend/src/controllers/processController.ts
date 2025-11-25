@@ -188,11 +188,79 @@ router.post("/", async (req: Request, res: Response) => {
         // Update the card record with the generated title/description
         const existingCard = cardsStore.get(cardId);
         if (existingCard) {
-          existingCard.autoTitle = result.autoTitle;
-          existingCard.autoDescription = result.autoDescription;
+          // Validate the fields before saving
+          let finalTitle = result.autoTitle || "";
+          let finalDescription = result.autoDescription || "";
+          
+          // Check if title is too long (might contain description)
+          // Typical title should be < 150 characters
+          if (finalTitle.length > 150 && finalDescription.length < 50) {
+            console.warn(`   ⚠️  WARNING: autoTitle is very long (${finalTitle.length} chars) and autoDescription is short (${finalDescription.length} chars)`);
+            console.warn(`   ⚠️  This suggests the fields might be swapped or combined`);
+            console.warn(`   ⚠️  autoTitle: "${finalTitle.substring(0, 100)}..."`);
+            console.warn(`   ⚠️  autoDescription: "${finalDescription}"`);
+            
+            // Try to detect if title contains description
+            if (finalTitle.includes(", ") && finalTitle.split(", ").length >= 3) {
+              const parts = finalTitle.split(", ");
+              // First 2 parts are likely the title, rest is description
+              const potentialTitle = parts.slice(0, 2).join(", ");
+              const potentialDesc = parts.slice(2).join(", ");
+              if (potentialTitle.length < 150 && potentialDesc.length > 50) {
+                console.log(`   🔧 Attempting to fix swapped fields`);
+                finalTitle = potentialTitle;
+                finalDescription = potentialDesc;
+              }
+            }
+          }
+          
+          // Check if description is in title field (common AI mistake)
+          if (finalTitle === finalDescription && finalDescription.length > 100) {
+            console.error(`   ❌ ERROR: autoTitle and autoDescription are identical!`);
+            console.error(`   ❌ This means the AI returned the same value for both fields`);
+            console.error(`   ❌ Value: "${finalTitle.substring(0, 100)}..."`);
+          }
+          
+          // Ensure title is not empty
+          if (!finalTitle || finalTitle.trim() === "") {
+            console.error(`   ❌ ERROR: autoTitle is empty!`);
+            finalTitle = existingCard.normalized.title || "Untitled Card";
+          }
+          
+          existingCard.autoTitle = finalTitle;
+          existingCard.autoDescription = finalDescription;
           existingCard.updatedAt = new Date().toISOString();
           cardsStore.set(cardId, existingCard);
+          
+          // VERIFY what was actually saved
+          const savedCard = cardsStore.get(cardId);
           console.log(`   📝 Card ${cardId} updated with title/description`);
+          console.log(`   📝 Final autoTitle: "${finalTitle}" (${finalTitle.length} chars)`);
+          console.log(`   📝 Final autoDescription: "${finalDescription.substring(0, 80)}..." (${finalDescription.length} chars)`);
+          console.log(`   ✅ VERIFICATION - Saved card record:`);
+          console.log(`      savedCard.autoTitle: "${savedCard?.autoTitle}" (${savedCard?.autoTitle?.length || 0} chars)`);
+          console.log(`      savedCard.autoDescription: "${savedCard?.autoDescription?.substring(0, 80) || ""}..." (${savedCard?.autoDescription?.length || 0} chars)`);
+          
+          // CRITICAL: Verify fields are not swapped
+          if (savedCard) {
+            if (savedCard.autoTitle && savedCard.autoDescription) {
+              if (savedCard.autoTitle.length > savedCard.autoDescription.length + 50) {
+                console.error(`   ❌ CRITICAL: Saved autoTitle (${savedCard.autoTitle.length} chars) is much longer than autoDescription (${savedCard.autoDescription.length} chars)!`);
+                console.error(`   ❌ This suggests fields may be swapped in the saved record!`);
+              }
+              if (savedCard.autoTitle === savedCard.autoDescription) {
+                console.error(`   ❌ CRITICAL: Saved autoTitle and autoDescription are identical!`);
+              }
+            }
+          }
+          
+          // Validate that description is not empty
+          if (!finalDescription || finalDescription.trim() === "") {
+            console.warn(`   ⚠️  WARNING: autoDescription is empty for card ${cardId}`);
+            console.warn(`   ⚠️  Full result:`, JSON.stringify(result, null, 2));
+          }
+        } else {
+          console.error(`   ❌ Card ${cardId} not found in store - cannot update title/description`);
         }
       })
       .catch((titleError: any) => {
